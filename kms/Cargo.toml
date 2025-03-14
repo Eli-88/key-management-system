@@ -1,0 +1,11 @@
+[package]
+name = "kms"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+httparse = "1.10.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+base64 = "0.22.1"
+kms_core = {path = "../kms_core" }

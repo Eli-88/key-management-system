@@ -9,7 +9,7 @@ fn next_multiple_of_16(size: usize) -> usize { ((size + 16 - 1) / 16) * 16 }
 
 pub struct Handler;
 impl Handler {
-    pub fn process_message(storage: &mut impl IStorage, request: Request) -> Response {
+    pub fn process_message<T>(storage: &mut T, request: Request) -> Response where T: IStorage {
 
         let mut response = Response::Invalid(InvalidResponse { result: String::from("ERROR")});
 

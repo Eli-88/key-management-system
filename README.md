@@ -6,6 +6,11 @@ This project demonstrates a **Key Management System (KMS)** built in **Rust** th
 
 The primary goal of this project is to provide an executable **Key Management System (KMS)** that wraps macOS's native cryptographic API for encryption and decryption services. Additionally, this project demonstrates how to wrap system calls in Rust for interacting with C APIs, providing a hands-on learning exercise.
 
+## Available Encryption
+- AES
+- RSA (1024 bit size)
+- RSA (2048 bit size)
+
 ## Usage
 
 This document demonstrates how to interact with the Key Management System API using `curl` commands for registering a user, encrypting data, and decrypting data.

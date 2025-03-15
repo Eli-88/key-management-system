@@ -8,7 +8,7 @@ use kms_core::crypto::RsaBitSize;
 fn next_multiple_of_16(size: usize) -> usize { ((size + 16 - 1) / 16) * 16 }
 
 pub fn on_message<T>(storage: &mut T, buffer: &[u8]) -> String where T: IStorage {
-    let request = parse(buffer);
+    let request = http_parse(buffer);
     let response = process_message(storage, request);
 
     let response = format!(
@@ -24,7 +24,7 @@ pub fn on_message<T>(storage: &mut T, buffer: &[u8]) -> String where T: IStorage
     response
 }
 
-pub fn parse(buffer: &[u8]) -> Request {
+pub fn http_parse(buffer: &[u8]) -> Request {
     let mut headers = [httparse::Header { name: "", value: &[] }; 32];
     let mut req = httparse::Request::new(&mut headers);
     let mut result: Request = Request::Invalid(InvalidRequest {});
@@ -218,7 +218,7 @@ mod tests {
             body
         );
 
-        match parse(message.as_bytes()) {
+        match http_parse(message.as_bytes()) {
             Request::Register(request) => {
                 assert_eq!(request.user_id, String::from("test user"));
                 assert_eq!(request.key_type, String::from("aes"));
@@ -251,7 +251,7 @@ mod tests {
             body
         );
 
-        match parse(message.as_bytes()) {
+        match http_parse(message.as_bytes()) {
             Request::Encrypt(request) => {
                 assert_eq!(request.user_id, String::from("test user"));
                 assert_eq!(request.key_type, String::from("aes"));
@@ -285,7 +285,7 @@ mod tests {
             body
         );
 
-        match parse(message.as_bytes()) {
+        match http_parse(message.as_bytes()) {
             Request::Decrypt(request) => {
                 assert_eq!(request.user_id, String::from("test user"));
                 assert_eq!(request.key_type, String::from("aes"));

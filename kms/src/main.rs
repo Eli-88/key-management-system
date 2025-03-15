@@ -3,12 +3,9 @@ mod storage_traits;
 mod message;
 mod handler;
 
-use crate::handler::Handler;
+use crate::handler::on_message;
 use crate::key_storage::KeyStorage;
-use crate::message::RegisterRequest;
-use crate::message::*;
 use crate::storage_traits::IStorage;
-use httparse::{Request, Status};
 use kms_core::kqueue::*;
 use kms_core::socket::*;
 use std::fmt::Debug;
@@ -50,84 +47,13 @@ fn run_server<T>(host: &str, port: u16, mut storage: T) where T: IStorage {
                 let conn = TcpSocket::from(fd);
                 let byte_recv = conn.recv(&mut recv_buffer);
 
-                let mut response = String::new();
+
                 if byte_recv > 0 {
-                    println!("recv_buffer: {:?}", String::from_utf8_lossy(&recv_buffer[0..byte_recv as usize]));
-
-                    let mut headers = [httparse::Header { name: "", value: &[] }; 32];
-                    let mut req = Request::new(&mut headers);
-                    let mut resp = Response::Invalid(InvalidResponse { result: String::from("Bad Request")});
-
-
-
-                    match req.parse(&recv_buffer[..byte_recv as usize]) {
-                        Ok(Status::Complete(sz)) => {
-                            match req.path {
-                                Some(path) => {
-
-                                    if path.to_lowercase() == "/register" {
-                                        match serde_json::from_slice::<RegisterRequest>(&recv_buffer[sz..byte_recv as usize]) {
-                                            Ok(request) => {
-                                                resp = Handler::process_message(&mut storage, message::Request::Register(request));
-                                            }
-                                            _=> {
-                                                resp = message::Response::Invalid(InvalidResponse { result: String::from("Bad Request")});
-                                            }
-                                        }
-                                    }
-
-                                    if path.to_lowercase() == "/encrypt" {
-                                        match serde_json::from_slice::<EncryptRequest>(&recv_buffer[sz..byte_recv as usize]) {
-                                            Ok(request) => {
-                                                resp = Handler::process_message(&mut storage, message::Request::Encrypt(request));
-                                            }
-                                            _=> {
-                                                resp = message::Response::Invalid(InvalidResponse { result: String::from("Bad Request")});
-                                            }
-                                        }
-                                    }
-
-                                    if path.to_lowercase() == "/decrypt" {
-                                        match serde_json::from_slice::<DecryptRequest>(&recv_buffer[sz..byte_recv as usize]) {
-                                            Ok(request) => {
-                                                resp = Handler::process_message(&mut storage, message::Request::Decrypt(request));
-                                            }
-                                            _=> {
-                                                resp = message::Response::Invalid(InvalidResponse { result: String::from("Bad Request")});
-                                            }
-                                        }
-                                    }
-
-                                }
-                                _ => {}
-                            }
-                        }
-                        _ => {}
-                    }
-
-                    match resp {
-                        Response::Register(resp) => {response = serde_json::to_string(&resp).unwrap();}
-                        Response::Encrypt(resp) => {response = serde_json::to_string(&resp).unwrap();}
-                        Response::Decrypt(resp) => {response = serde_json::to_string(&resp).unwrap();}
-                        Response::Invalid(resp) => {response = serde_json::to_string(&resp).unwrap();}
-                    }
+                    let response = on_message(&mut storage, &recv_buffer[0..byte_recv as usize]);
+                    conn.send(response.as_bytes());
                 }
 
-
-
-                let response = format!(
-                    "HTTP/1.1 200 OK\r\n\
-                     Content-Type: text/plain\r\n\
-                     Content-Length: {}\r\n\
-                     \r\n\
-                     {}",
-                    response.len(),
-                    response
-                );
-
-                conn.send(response.as_bytes());
                 conn.close();
-
             }
         }
     }

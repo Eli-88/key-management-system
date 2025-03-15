@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "kms_core",
+    "kms"
+]
+
+[workspace.dependencies]
+kms_core = {path = "kms_core"}

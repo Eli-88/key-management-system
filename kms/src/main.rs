@@ -86,21 +86,12 @@ impl <T> HttpHandler<T> where T: IStorage {
         let mut req = httparse::Request::new(&mut headers);
 
         let mut response: Option<String> = None;
-        match req.parse(&buffer) {
-            Ok(Status::Complete(sz)) => {
-                match req.path {
-                    Some(path) => {
-                        match self.router.get(path) {
-                            Some(ops) => {
-                                response = ops(storage, &buffer[sz..])
-                            }
-                            _ => {}
-                        }
-                    }
-                    _ => {}
+        if let Ok(Status::Complete(sz)) = req.parse(&buffer) {
+            if let Some(path) = req.path {
+                if let Some(ops) = self.router.get(path) {
+                    response = ops(storage, &buffer[sz..]);
                 }
             }
-            _ => {}
         }
 
         match response {

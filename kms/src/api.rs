@@ -6,96 +6,108 @@ use kms_core::crypto::RsaBitSize;
 use std::option::Option;
 fn next_multiple_of_16(size: usize) -> usize { ((size + 16 - 1) / 16) * 16 }
 
+pub fn process_register_request<T>(storage: &mut T, buffer: &[u8]) -> Option<String> where T: IStorage {
+    if let Ok(request) = serde_json::from_slice::<RegisterRequest>(buffer) {
+        if request.key_type.to_lowercase() == "aes" {
+            storage.register(&request.user_id, KeyContext::aes());
+            return Option::from(serde_json::to_string(&RegisterResponse { result: String::from("OK") }).unwrap());
+        }
+
+        if request.key_type.to_lowercase() == "rsa" {
+            match request.rsa_key_size {
+                1024 => {
+                    storage.register(&request.user_id, KeyContext::rsa(RsaBitSize::Bits1024));
+                    return Option::from(serde_json::to_string(&RegisterResponse { result: String::from("OK") }).unwrap());
+                }
+
+                2048 => {
+                    storage.register(&request.user_id, KeyContext::rsa(RsaBitSize::Bits2048));
+                    return  Option::from(serde_json::to_string(&RegisterResponse { result: String::from("OK") }).unwrap());
+                }
+
+                _ => {}
+            }
+        }
+    }
+
+    None
+}
 
 pub fn process_encrypt_request<T>(storage: &mut T, buffer: &[u8]) -> Option<String> where T: IStorage {
-    match serde_json::from_slice::<EncryptRequest>(buffer) {
-        Ok(request) => {
-            if request.key_type.to_lowercase() == "aes" {
-                let cipher_expected_len = next_multiple_of_16(request.plain_text.len());
+    if let Ok(request) = serde_json::from_slice::<EncryptRequest>(buffer) {
+        if request.key_type.to_lowercase() == "aes" {
+            let cipher_expected_len = next_multiple_of_16(request.plain_text.len());
+            let mut cipher = vec![0u8; cipher_expected_len];
+            let cipher_len = storage.encrypt(&request.user_id, &request.plain_text.as_bytes(), cipher.as_mut_slice(), KeyContext::aes());
+            if cipher.len() == cipher_len {
+                return Option::from(serde_json::to_string(&EncryptResponse { cipher_text: BASE64_STANDARD.encode(&cipher[..cipher_len]) }).unwrap());
+            }
+        }
+
+        if request.key_type.to_lowercase() == "rsa" {
+            if request.rsa_key_size == 1024 {
+                let cipher_expected_len = 128;
                 let mut cipher = vec![0u8; cipher_expected_len];
-                let cipher_len = storage.encrypt(&request.user_id, &request.plain_text.as_bytes(), cipher.as_mut_slice(), KeyContext::aes());
+                let cipher_len = storage.encrypt(&request.user_id, &request.plain_text.as_bytes(), cipher.as_mut_slice(), KeyContext::rsa(RsaBitSize::Bits1024));
                 if cipher.len() == cipher_len {
                     return Option::from(serde_json::to_string(&EncryptResponse { cipher_text: BASE64_STANDARD.encode(&cipher[..cipher_len]) }).unwrap());
                 }
             }
 
-            if request.key_type.to_lowercase() == "rsa" {
-                if request.rsa_key_size == 1024 {
-                    let cipher_expected_len = 128;
-                    let mut cipher = vec![0u8; cipher_expected_len];
-                    let cipher_len = storage.encrypt(&request.user_id, &request.plain_text.as_bytes(), cipher.as_mut_slice(), KeyContext::rsa(RsaBitSize::Bits1024));
-                    if cipher.len() == cipher_len {
-                        return Option::from(serde_json::to_string(&EncryptResponse { cipher_text: BASE64_STANDARD.encode(&cipher[..cipher_len]) }).unwrap());
-                    }
-                }
-
-                if request.rsa_key_size == 2048 {
-                    let cipher_expected_len = 256;
-                    let mut cipher = vec![0u8; cipher_expected_len];
-                    let cipher_len = storage.encrypt(&request.user_id, &request.plain_text.as_bytes(), cipher.as_mut_slice(), KeyContext::rsa(RsaBitSize::Bits2048));
-                    if cipher.len() == cipher_len {
-                        return Option::from(serde_json::to_string(&EncryptResponse { cipher_text: BASE64_STANDARD.encode(&cipher[..cipher_len]) }).unwrap());
-                    }
+            if request.rsa_key_size == 2048 {
+                let cipher_expected_len = 256;
+                let mut cipher = vec![0u8; cipher_expected_len];
+                let cipher_len = storage.encrypt(&request.user_id, &request.plain_text.as_bytes(), cipher.as_mut_slice(), KeyContext::rsa(RsaBitSize::Bits2048));
+                if cipher.len() == cipher_len {
+                    return Option::from(serde_json::to_string(&EncryptResponse { cipher_text: BASE64_STANDARD.encode(&cipher[..cipher_len]) }).unwrap());
                 }
             }
-
         }
-        _ => {}
     }
 
     None
 }
 
 pub fn process_decrypt_request<T>(storage: &mut T, buffer: &[u8]) -> Option<String> where T: IStorage {
-    match serde_json::from_slice::<DecryptRequest>(buffer) {
-        Ok(request) => {
-            if request.key_type.to_lowercase() == "aes" {
-                let cipher = BASE64_STANDARD.decode(&request.cipher_text);
-                match cipher {
-                    Ok(cipher) => {
-                        let plain_len: usize = cipher.len();
-                        let mut plain = vec![0u8; plain_len];
+    if let Ok(request) = serde_json::from_slice::<DecryptRequest>(buffer) {
+        if request.key_type.to_lowercase() == "aes" {
+            let cipher = BASE64_STANDARD.decode(&request.cipher_text);
+            if let Ok(cipher) = cipher {
+                let plain_len: usize = cipher.len();
+                let mut plain = vec![0u8; plain_len];
 
-                        let plain_output_len = storage.decrypt(&request.user_id, plain.as_mut_slice(), cipher.as_slice(), KeyContext::aes());
-                        if plain_len >= plain_output_len {
-                            let slice: &[u8] = &plain[..plain_output_len];
-                            return Option::from(serde_json::to_string(&DecryptResponse { plain_text: String::from_utf8_lossy(slice).to_string() }).unwrap());
-                        }
-                    }
-                    _ => {}
+                let plain_output_len = storage.decrypt(&request.user_id, plain.as_mut_slice(), cipher.as_slice(), KeyContext::aes());
+                if plain_len >= plain_output_len {
+                    let slice: &[u8] = &plain[..plain_output_len];
+                    return Option::from(serde_json::to_string(&DecryptResponse { plain_text: String::from_utf8_lossy(slice).to_string() }).unwrap());
                 }
-            }
-
-            if request.key_type.to_lowercase() == "rsa" {
-                let cipher = BASE64_STANDARD.decode(&request.cipher_text);
-                match cipher {
-                    Ok(cipher) => {
-                        let plain_len: usize = cipher.len();
-                        let mut plain = vec![0u8; plain_len];
-
-                        let mut plain_output_len: usize = 0;
-                        if request.rsa_key_size == 1024 {
-                            plain_output_len = storage.decrypt(&request.user_id, plain.as_mut_slice(), cipher.as_slice(), KeyContext::rsa(RsaBitSize::Bits1024));
-                            if plain_len >= plain_output_len {
-                                let slice: &[u8] = &plain[..plain_output_len];
-                                return Option::from(serde_json::to_string(&DecryptResponse { plain_text: String::from_utf8_lossy(slice).to_string() }).unwrap());
-                            }
-                        }
-
-                        if request.rsa_key_size == 2048 {
-                            plain_output_len = storage.decrypt(&request.user_id, plain.as_mut_slice(), cipher.as_slice(), KeyContext::rsa(RsaBitSize::Bits2048));
-                            if plain_len >= plain_output_len {
-                                let slice: &[u8] = &plain[..plain_output_len];
-                                return Option::from(serde_json::to_string(&DecryptResponse { plain_text: String::from_utf8_lossy(slice).to_string() }).unwrap());
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-
             }
         }
-        _ => {}
+
+        if request.key_type.to_lowercase() == "rsa" {
+            let cipher = BASE64_STANDARD.decode(&request.cipher_text);
+            if let Ok(cipher) = cipher {
+                let plain_len: usize = cipher.len();
+                let mut plain = vec![0u8; plain_len];
+
+                let mut plain_output_len: usize = 0;
+                if request.rsa_key_size == 1024 {
+                    plain_output_len = storage.decrypt(&request.user_id, plain.as_mut_slice(), cipher.as_slice(), KeyContext::rsa(RsaBitSize::Bits1024));
+                    if plain_len >= plain_output_len {
+                        let slice: &[u8] = &plain[..plain_output_len];
+                        return Option::from(serde_json::to_string(&DecryptResponse { plain_text: String::from_utf8_lossy(slice).to_string() }).unwrap());
+                    }
+                }
+
+                if request.rsa_key_size == 2048 {
+                    plain_output_len = storage.decrypt(&request.user_id, plain.as_mut_slice(), cipher.as_slice(), KeyContext::rsa(RsaBitSize::Bits2048));
+                    if plain_len >= plain_output_len {
+                        let slice: &[u8] = &plain[..plain_output_len];
+                        return Option::from(serde_json::to_string(&DecryptResponse { plain_text: String::from_utf8_lossy(slice).to_string() }).unwrap());
+                    }
+                }
+            }
+        }
     }
 
     None
@@ -270,34 +282,4 @@ mod tests {
             _ => assert!(false),
         }
     }
-}
-
-pub fn process_register_request<T>(storage: &mut T, buffer: &[u8]) -> Option<String> where T: IStorage {
-    match serde_json::from_slice::<RegisterRequest>(buffer) {
-        Ok(request) => {
-            if request.key_type.to_lowercase() == "aes" {
-                storage.register(&request.user_id, KeyContext::aes());
-                return Option::from(serde_json::to_string(&RegisterResponse { result: String::from("OK") }).unwrap());
-            }
-
-            if request.key_type.to_lowercase() == "rsa" {
-                match request.rsa_key_size {
-                    1024 => {
-                        storage.register(&request.user_id, KeyContext::rsa(RsaBitSize::Bits1024));
-                        return Option::from(serde_json::to_string(&RegisterResponse { result: String::from("OK") }).unwrap());
-                    }
-
-                    2048 => {
-                        storage.register(&request.user_id, KeyContext::rsa(RsaBitSize::Bits2048));
-                        return  Option::from(serde_json::to_string(&RegisterResponse { result: String::from("OK") }).unwrap());
-                    }
-
-                    _ => {}
-                }
-            }
-        }
-        _ => {}
-    }
-
-    None
 }

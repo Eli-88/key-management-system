@@ -1,5 +1,5 @@
 use crate::message::{DecryptRequest, DecryptResponse, EncryptRequest, EncryptResponse, RegisterRequest, RegisterResponse};
-use crate::storage_traits::{IStorage, KeyContext};
+use crate::interface::{IStorage, KeyContext};
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use kms_core::crypto::RsaBitSize;

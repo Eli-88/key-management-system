@@ -1,19 +1,20 @@
 mod key_storage;
-mod storage_traits;
+mod interface;
 mod message;
 mod api;
+mod handler;
 
 use crate::key_storage::KeyStorage;
-use crate::storage_traits::IStorage;
+use crate::interface::{IHandler, IStorage};
 use kms_core::kqueue::*;
 use kms_core::socket::*;
 use std::fmt::Debug;
 use std::ptr::null_mut;
-use std::collections::HashMap;
-use httparse::Status;
+use handler::HttpHandler;
 
-fn run_server<T>(host: &str, port: u16, mut storage: T) where T: IStorage {
-    let handler = HttpHandler::new();
+fn run_server<T, U>(host: &str, port: u16, mut storage: T, handler: U)
+    where T: IStorage,
+          U : IHandler<T>, {
 
     let server_socket = TcpSocket::new();
     server_socket.socket_option(SOL_SOCKET, SO_REUSEADDR, 1);
@@ -63,54 +64,7 @@ fn run_server<T>(host: &str, port: u16, mut storage: T) where T: IStorage {
 }
 
 fn main() {
-    run_server("127.0.0.1", 8080, KeyStorage::new());
+    run_server("127.0.0.1", 8080,
+               KeyStorage::new(), HttpHandler::new());
 }
 
-pub struct HttpHandler<T> where T: IStorage
-{
-    router: HashMap<String, fn(&mut T, &[u8]) -> Option<String>>,
-}
-
-impl <T> HttpHandler<T> where T: IStorage {
-    pub fn new() -> Self {
-        let mut router: HashMap<String, fn(&mut T, &[u8]) -> Option<String>> = HashMap::new();
-        router.insert(String::from("/register"), api::process_register_request);
-        router.insert(String::from("/encrypt"), api::process_encrypt_request);
-        router.insert(String::from("/decrypt"), api::process_decrypt_request);
-
-        HttpHandler { router }
-    }
-
-    pub fn on_message(&self, storage: &mut T, buffer: &[u8]) -> String {
-        let mut headers = [httparse::Header { name: "", value: &[] }; 32];
-        let mut req = httparse::Request::new(&mut headers);
-
-        let mut response: Option<String> = None;
-        if let Ok(Status::Complete(sz)) = req.parse(&buffer) {
-            if let Some(path) = req.path {
-                if let Some(ops) = self.router.get(path) {
-                    response = ops(storage, &buffer[sz..]);
-                }
-            }
-        }
-
-        match response {
-            Some(response) => {
-                format!(
-                    "HTTP/1.1 200 OK\r\n\
-                     Content-Type: text/plain\r\n\
-                     Content-Length: {}\r\n\
-                     \r\n\
-                     {}",
-                    response.len(),
-                    response
-                )
-            }
-            _ => {
-                "HTTP/1.1 400 Bad Request\r\n\
-                Content-Length: 0\r\n\
-                Connection: close\r\n\r\n".to_string()
-            }
-        }
-    }
-}

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use kms_core::crypto::*;
-use crate::storage_traits::{KeyContext, IStorage};
+use crate::interface::{KeyContext, IStorage};
 
 #[derive(Debug, Copy, Clone)]
 pub enum CryptoType

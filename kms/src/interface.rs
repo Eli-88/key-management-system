@@ -19,3 +19,8 @@ pub trait IStorage
     fn encrypt(&mut self, user_id: &str, plain: &[u8], cipher: &mut [u8], key_context: KeyContext) -> usize;
     fn decrypt(&mut self, user_id: &str, plain: &mut [u8], cipher: &[u8], key_context: KeyContext) -> usize;
 }
+
+pub trait IHandler<T> where T: IStorage
+{
+    fn on_message(&self, storage: &mut T, buffer: &[u8]) -> String;
+}

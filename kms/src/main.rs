@@ -14,7 +14,7 @@ use handler::HttpHandler;
 
 fn run_server<T, U>(host: &str, port: u16, mut storage: T, handler: U)
     where T: IStorage,
-          U : IHandler<T>, {
+          U: IHandler<T>, {
 
     let server_socket = TcpSocket::new();
     server_socket.socket_option(SOL_SOCKET, SO_REUSEADDR, 1);
@@ -64,7 +64,12 @@ fn run_server<T, U>(host: &str, port: u16, mut storage: T, handler: U)
 }
 
 fn main() {
+    let mut handler = HttpHandler::new();
+    handler.register("/register", api::process_register_request);
+    handler.register("/encrypt", api::process_encrypt_request);
+    handler.register("/decrypt", api::process_decrypt_request);
+
     run_server("127.0.0.1", 8080,
-               KeyStorage::new(), HttpHandler::new());
+               KeyStorage::new(), handler);
 }
 

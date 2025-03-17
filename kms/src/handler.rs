@@ -1,7 +1,6 @@
-use std::collections::HashMap;
-use httparse::Status;
-use crate::api;
 use crate::interface::{IHandler, IStorage};
+use httparse::Status;
+use std::collections::HashMap;
 
 pub struct HttpHandler<T> where T: IStorage
 {
@@ -10,12 +9,11 @@ pub struct HttpHandler<T> where T: IStorage
 
 impl<T> HttpHandler<T> where T: IStorage {
     pub fn new() -> Self {
-        let mut router: HashMap<String, fn(&mut T, &[u8]) -> Option<String>> = HashMap::new();
-        router.insert(String::from("/register"), api::process_register_request);
-        router.insert(String::from("/encrypt"), api::process_encrypt_request);
-        router.insert(String::from("/decrypt"), api::process_decrypt_request);
+        HttpHandler { router: HashMap::new() }
+    }
 
-        HttpHandler { router }
+    pub fn register(&mut self, path: &str, callback: fn(&mut T, &[u8]) -> Option<String>) {
+        self.router.insert(path.to_string(), callback);
     }
 }
 

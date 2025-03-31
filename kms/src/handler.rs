@@ -22,14 +22,24 @@ impl<T> IHandler<T> for HttpHandler<T> where T: IStorage {
         let mut headers = [httparse::Header { name: "", value: &[] }; 32];
         let mut req = httparse::Request::new(&mut headers);
 
-        let mut response: Option<String> = None;
-        if let Ok(Status::Complete(sz)) = req.parse(&buffer) {
-            if let Some(path) = req.path {
-                if let Some(ops) = self.router.get(path) {
-                    response = ops(storage, &buffer[sz..]);
-                }
-            }
-        }
+        let bad_response =
+            "HTTP/1.1 400 Bad Request\r\n\
+            Content-Length: 0\r\n\
+            Connection: close\r\n\r\n";
+
+        let Ok(Status::Complete(sz)) = req.parse(buffer) else {
+            return bad_response.to_string();
+        };
+
+        let Some(path) = req.path else {
+            return bad_response.to_string();
+        };
+
+        let Some(ops) = self.router.get(path) else {
+            return bad_response.to_string();
+        };
+
+        let response = ops(storage, &buffer[sz..]);
 
         match response {
             Some(response) => {
@@ -43,11 +53,7 @@ impl<T> IHandler<T> for HttpHandler<T> where T: IStorage {
                     response
                 )
             }
-            _ => {
-                "HTTP/1.1 400 Bad Request\r\n\
-                Content-Length: 0\r\n\
-                Connection: close\r\n\r\n".to_string()
-            }
+            _ => bad_response.to_string()
         }
     }
 }

@@ -3,7 +3,6 @@ use crate::interface::{IStorage, KeyContext};
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use kms_core::crypto::RsaBitSize;
-use std::option::Option;
 
 fn next_multiple_of_16(size: usize) -> usize { ((size + 16 - 1) / 16) * 16 }
 
@@ -15,7 +14,7 @@ pub fn process_register_request<T>(storage: &mut T, buffer: &[u8]) -> Option<Str
     match request.key_type.to_lowercase().as_str() {
         "aes" => {
             storage.register(&request.user_id, KeyContext::aes());
-            Option::from(serde_json::to_string(&RegisterResponse { result: String::from("OK") }).unwrap())
+            Some(serde_json::to_string(&RegisterResponse { result: String::from("OK") }).unwrap())
         }
         "rsa" => {
 
@@ -26,7 +25,7 @@ pub fn process_register_request<T>(storage: &mut T, buffer: &[u8]) -> Option<Str
             }?;
 
             storage.register(&request.user_id, KeyContext::rsa(key_size));
-            Option::from(serde_json::to_string(&RegisterResponse { result: String::from("OK") }).unwrap())
+            Some(serde_json::to_string(&RegisterResponse { result: String::from("OK") }).unwrap())
         }
         _ => None
     }
@@ -45,7 +44,7 @@ pub fn process_encrypt_request<T>(storage: &mut T, buffer: &[u8]) -> Option<Stri
             if cipher.len() != cipher_len {
                 return None;
             }
-            Option::from(serde_json::to_string(&EncryptResponse { cipher_text: BASE64_STANDARD.encode(&cipher[..cipher_len]) }).unwrap())
+            Some(serde_json::to_string(&EncryptResponse { cipher_text: BASE64_STANDARD.encode(&cipher[..cipher_len]) }).unwrap())
 
         }
         "rsa" => {
@@ -62,7 +61,8 @@ pub fn process_encrypt_request<T>(storage: &mut T, buffer: &[u8]) -> Option<Stri
             if cipher.len() != cipher_len {
                 return None;
             }
-            Option::from(serde_json::to_string(&EncryptResponse { cipher_text: BASE64_STANDARD.encode(&cipher[..cipher_len]) }).unwrap())
+            
+            Some(serde_json::to_string(&EncryptResponse { cipher_text: BASE64_STANDARD.encode(&cipher[..cipher_len]) }).unwrap())
         }
         _ => None
     }
@@ -89,7 +89,7 @@ pub fn process_decrypt_request<T>(storage: &mut T, buffer: &[u8]) -> Option<Stri
             }
 
             let slice: &[u8] = &plain[..plain_output_len];
-            Option::from(serde_json::to_string(&DecryptResponse { plain_text: String::from_utf8_lossy(slice).to_string() }).unwrap())
+            Some(serde_json::to_string(&DecryptResponse { plain_text: String::from_utf8_lossy(slice).to_string() }).unwrap())
         },
         "rsa" => {
             let plain_len: usize = cipher.len();
@@ -109,7 +109,7 @@ pub fn process_decrypt_request<T>(storage: &mut T, buffer: &[u8]) -> Option<Stri
             }
 
             let slice: &[u8] = &plain[..plain_output_len];
-            Option::from(serde_json::to_string(&DecryptResponse { plain_text: String::from_utf8_lossy(slice).to_string() }).unwrap())
+            Some(serde_json::to_string(&DecryptResponse { plain_text: String::from_utf8_lossy(slice).to_string() }).unwrap())
         },
         _ => None
     }

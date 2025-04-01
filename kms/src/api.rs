@@ -14,7 +14,7 @@ pub fn process_register_request<T>(storage: &mut T, buffer: &[u8]) -> Option<Str
     match request.key_type.to_lowercase().as_str() {
         "aes" => {
             storage.register(&request.user_id, KeyContext::aes());
-            Some(serde_json::to_string(&RegisterResponse { result: String::from("OK") }).unwrap())
+            serde_json::to_string(&RegisterResponse { result: String::from("OK") }).ok()
         }
         "rsa" => {
 
@@ -25,7 +25,7 @@ pub fn process_register_request<T>(storage: &mut T, buffer: &[u8]) -> Option<Str
             }?;
 
             storage.register(&request.user_id, KeyContext::rsa(key_size));
-            Some(serde_json::to_string(&RegisterResponse { result: String::from("OK") }).unwrap())
+            serde_json::to_string(&RegisterResponse { result: String::from("OK") }).ok()
         }
         _ => None
     }
@@ -44,7 +44,7 @@ pub fn process_encrypt_request<T>(storage: &mut T, buffer: &[u8]) -> Option<Stri
             if cipher.len() != cipher_len {
                 return None;
             }
-            Some(serde_json::to_string(&EncryptResponse { cipher_text: BASE64_STANDARD.encode(&cipher[..cipher_len]) }).unwrap())
+            serde_json::to_string(&EncryptResponse { cipher_text: BASE64_STANDARD.encode(&cipher[..cipher_len]) }).ok()
 
         }
         "rsa" => {
@@ -62,7 +62,7 @@ pub fn process_encrypt_request<T>(storage: &mut T, buffer: &[u8]) -> Option<Stri
                 return None;
             }
             
-            Some(serde_json::to_string(&EncryptResponse { cipher_text: BASE64_STANDARD.encode(&cipher[..cipher_len]) }).unwrap())
+            serde_json::to_string(&EncryptResponse { cipher_text: BASE64_STANDARD.encode(&cipher[..cipher_len]) }).ok()
         }
         _ => None
     }
@@ -89,7 +89,7 @@ pub fn process_decrypt_request<T>(storage: &mut T, buffer: &[u8]) -> Option<Stri
             }
 
             let slice: &[u8] = &plain[..plain_output_len];
-            Some(serde_json::to_string(&DecryptResponse { plain_text: String::from_utf8_lossy(slice).to_string() }).unwrap())
+            serde_json::to_string(&DecryptResponse { plain_text: String::from_utf8_lossy(slice).to_string() }).ok()
         },
         "rsa" => {
             let plain_len: usize = cipher.len();
@@ -109,7 +109,7 @@ pub fn process_decrypt_request<T>(storage: &mut T, buffer: &[u8]) -> Option<Stri
             }
 
             let slice: &[u8] = &plain[..plain_output_len];
-            Some(serde_json::to_string(&DecryptResponse { plain_text: String::from_utf8_lossy(slice).to_string() }).unwrap())
+            serde_json::to_string(&DecryptResponse { plain_text: String::from_utf8_lossy(slice).to_string() }).ok()
         },
         _ => None
     }

@@ -39,64 +39,54 @@ impl IStorage for KeyStorage {
     }
 
     fn encrypt(&mut self, user_id: &str, plain: &[u8], cipher: &mut [u8], key_context: KeyContext) -> usize {
-        let mut output_len = 0;
         match key_context.crypto_type {
+
             CryptoType::AES => {
-                let secret_key = self.aes_map.get(user_id);
-                match secret_key {
-                    Some(key) => {
-                        output_len = AES::encrypt(key, &self.iv, plain, cipher);
-                    }
-                    None => {
-                        output_len = 0;
-                    }
+                if let Some(secret_key) = self.aes_map.get(user_id) {
+                    return AES::encrypt(secret_key, &self.iv, plain, cipher);
                 }
             }
+
             CryptoType::RSA => {
-                let rsa = self.rsa_map.get(user_id);
-                match rsa {
-                    Some(rsa) => {
-                        if rsa.bit_size == key_context.rsa_key_size {
-                            if !rsa.encrypt(plain, cipher, &mut output_len) {output_len = 0;}
+                if let Some(rsa) = self.rsa_map.get(user_id) {
+                    if rsa.bit_size == key_context.rsa_key_size {
+                        let mut output_len = 0;
+                        if rsa.encrypt(plain, cipher, &mut output_len) {
+                            return output_len;
                         }
-                        else {output_len = 0;}
                     }
-                    None => {output_len = 0;}
                 }
             }
+
         }
 
-        output_len
+        0
     }
 
     fn decrypt(&mut self, user_id: &str, plain: &mut [u8], cipher: &[u8], key_context: KeyContext) -> usize {
-        let mut output_len = 0;
-
         match key_context.crypto_type {
-            CryptoType::AES => {
-                let mut secret_key = self.aes_map.get(user_id);
-                match secret_key {
-                    Some(key) => {
-                        output_len = AES::decrypt(key, &self.iv,plain, cipher);
-                    }
-                    None => {output_len = 0;}
-                }
-            }
-            CryptoType::RSA => {
-                let rsa = self.rsa_map.get(user_id);
-                match rsa {
-                    Some(rsa) => {
-                        if rsa.bit_size == key_context.rsa_key_size {
-                            if !rsa.decrypt(plain, cipher, &mut output_len) {output_len = 0;}
-                        }
-                        else {output_len = 0;}
-                    }
-                    None => {output_len = 0;}
-                }
-            }
-        }
 
-        output_len
+            CryptoType::AES => {
+                if let Some(secret_key) = self.aes_map.get(user_id) {
+                    return AES::decrypt(secret_key, &self.iv,plain, cipher);
+
+                }
+            }
+
+            CryptoType::RSA => {
+                if let Some(rsa) = self.rsa_map.get(user_id) {
+                    if rsa.bit_size == key_context.rsa_key_size {
+                        let mut output_len = 0;
+                        if rsa.decrypt(plain, cipher, &mut output_len) {
+                            return output_len;
+                        }
+                    }
+
+                }
+            }
+
+        }
+        0
     }
 
 }

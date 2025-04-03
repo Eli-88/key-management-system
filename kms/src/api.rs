@@ -104,9 +104,6 @@ pub fn process_decrypt_request<T>(storage: &mut T, buffer: &[u8]) -> Option<Stri
             }?;
 
             plain_output_len = storage.decrypt(&request.user_id, plain.as_mut_slice(), cipher.as_slice(), KeyContext::rsa(key_size));
-            if plain_output_len < plain_output_len {
-                return None;
-            }
 
             let slice: &[u8] = &plain[..plain_output_len];
             serde_json::to_string(&DecryptResponse { plain_text: String::from_utf8_lossy(slice).to_string() }).ok()

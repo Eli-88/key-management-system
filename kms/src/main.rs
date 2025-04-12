@@ -4,13 +4,12 @@ mod message;
 mod api;
 mod handler;
 
-use crate::key_storage::KeyStorage;
 use crate::interface::{IHandler, IStorage};
-use kms_core::kqueue::*;
+use crate::key_storage::KeyStorage;
+use handler::HttpHandler;
+use kms_core::poller::*;
 use kms_core::socket::*;
 use std::fmt::Debug;
-use std::ptr::null_mut;
-use handler::HttpHandler;
 
 fn run_server<T, U>(host: &str, port: u16, mut storage: T, handler: U)
     where T: IStorage,
@@ -21,27 +20,21 @@ fn run_server<T, U>(host: &str, port: u16, mut storage: T, handler: U)
     server_socket.bind(host, port);
     server_socket.listen(1024);
 
-    let kq = Kqueue::new();
+    let kq = Poller::new();
     kq.ctl(server_socket.fd, EVFILT_READ, EV_ADD);
 
     let mut recv_buffer: [u8; 1024] = [0; 1024];
-    let mut events: [KEvent; 32] = [KEvent{
-        ident: 0,
-        filter: 0,
-        flags: 0,
-        fflags: 0,
-        data: 0,
-        udata: null_mut(),
-    }; 32];
+
+    let mut events: [PollEvent; 32] = [PollEvent {fd: -1}; 32];
     loop {
         let event_count = kq.wait(&mut events, -1);
         if event_count < 0 {
-            println!("kqueue poll error"); // let's just log for now, it might be interrupted
+            println!("poll error"); // let's just log for now, it might be interrupted
             continue;
         }
 
         for i in 0..event_count as usize {
-            let fd = events[i].ident as i32;
+            let fd = events[i].fd;
 
             if server_socket.fd == fd {
                 let conn = server_socket.accept();
